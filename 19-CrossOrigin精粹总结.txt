@@ -1,0 +1,2 @@
+@CrossOrigin写在谁的前面(头上)，谁就可以被origins里的参数访问。
+@CrossOrigin注解可以不写里面的origins参数，不写表示可以被所有的路径访问。
