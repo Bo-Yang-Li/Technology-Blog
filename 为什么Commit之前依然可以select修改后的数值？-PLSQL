@@ -1,0 +1,90 @@
+也就是说，在我运行了那句SQL语句之后，但是在COMMIT之前，SELECT * FROM bc_cash_movement WHERE movement_no IN ('FSZ25030198');这句代码依然是可以查到修改后的数值，即使我并没有Commit对吗 
+
+--------------------------------------------------------------------------------------------------------------------------
+ChatGPT 说：
+是的，在 未提交 (未 COMMIT) 的情况下，执行：
+
+sql
+复制
+编辑
+SELECT * FROM bc_cash_movement WHERE movement_no IN ('FSZ25030198');
+是可以查询到已修改的值的，但这有几个前提和关键点要理解：
+
+--------------------------------------------------------------------------------------------------------------------------
+🔎 为什么可以查询到修改后的值？
+在 SQL 数据库（如 Oracle、MySQL、PostgreSQL 等）中，事务的工作机制决定了这个行为：
+
+事务的原理
+
+UPDATE 语句执行时，会在当前会话 (session) 内立即反映出更新后的数据。
+但这只是临时的，并未真正写入数据库中的物理存储 (磁盘)。
+此时的数据仅在你的当前会话内可见，其他会话无法看到该变更。
+事务的隔离性 (Isolation)
+
+数据库的事务隔离机制会确保：
+你的当前会话：在 COMMIT 之前，你自己可以看到未提交的数据。
+其他会话/用户：在 COMMIT 之前，其他人看不到这些更改的数据。
+事务控制
+
+如果你：
+执行 ROLLBACK ➔ 撤销更改，数据恢复到 UPDATE 前的状态。
+执行 COMMIT ➔ 将更改永久保存，其他用户会话也能看到新数据。
+🚨 示例流程
+假设 movement_no = 'FSZ25030198' 的原始数据是：
+
+movement_no	rp_cust_bank_name
+FSZ25030198	ABC BANK BRANCH HCMC
+【1】执行 UPDATE（未提交）
+sql
+复制
+编辑
+UPDATE bc_cash_movement 
+SET rp_cust_bank_name = 'VIETINBANK BRANCH HO CHI MINH CITY'
+WHERE movement_no = 'FSZ25030198';
+【2】在当前会话中执行 SELECT
+sql
+复制
+编辑
+SELECT * FROM bc_cash_movement WHERE movement_no = 'FSZ25030198';
+✅ 查询结果（在当前会话中）：
+
+movement_no	rp_cust_bank_name
+FSZ25030198	VIETINBANK BRANCH HO CHI MINH CITY
+【3】在其他会话中执行 SELECT
+如果此时在另一个会话中运行相同 SELECT 语句：
+
+sql
+复制
+编辑
+SELECT * FROM bc_cash_movement WHERE movement_no = 'FSZ25030198';
+❌ 查询结果：
+
+movement_no	rp_cust_bank_name
+FSZ25030198	ABC BANK BRANCH HCMC
+【4】执行 ROLLBACK
+sql
+复制
+编辑
+ROLLBACK;
+✅ 数据恢复为原始状态：
+
+movement_no	rp_cust_bank_name
+FSZ25030198	ABC BANK BRANCH HCMC
+【5】执行 COMMIT
+sql
+复制
+编辑
+COMMIT;
+✅ 所有会话都能看到更新后的数据：
+
+movement_no	rp_cust_bank_name
+FSZ25030198	VIETINBANK BRANCH HO CHI MINH CITY
+
+--------------------------------------------------------------------------------------------------------------------------
+⚠️ 关键点总结
+✅ 未 COMMIT 时，当前会话可以看到 UPDATE 后的数据。
+❌ 未 COMMIT 时，其他会话无法看到 UPDATE 的数据。
+✅ 使用 ROLLBACK 可以撤销 UPDATE。
+✅ 使用 COMMIT 之后，变更才会真正持久化，并对所有用户可见。
+
+这正是 SQL 事务机制中的 隔离性 (Isolation) 的体现。
